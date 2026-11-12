@@ -1,0 +1,14 @@
+{
+  "name": "snip-cli",
+  "version": "1.0.0",
+  "private": true,
+  "bin": {
+    "snip": "cli.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
