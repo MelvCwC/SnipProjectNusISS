@@ -115,7 +115,7 @@ async function createHandler({ baseUrl, publicDir } = {}) {
     link.hits += 1;
     return new Response(null, {
       status: 302,
-      headers: { ...cors, Location: link.url, "Cache-Control": "no-store" },
+      headers: { ...cors, Location: new URL(link.url).href, "Cache-Control": "no-store" },
     });
   };
 }

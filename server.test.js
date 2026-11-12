@@ -58,6 +58,16 @@ describe("shared API", () => {
     },
   );
 
+  test("encodes international URL characters in redirect headers", async () => {
+    const fetch = await createHandler();
+    const url = "https://example.com/\u{1f60a}";
+    const link = await createLink(fetch, url);
+    expect(link.url).toBe(url);
+    const redirect = await fetch(request(`/${link.code}`));
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get("Location")).toBe(new URL(url).href);
+  });
+
   test("rejects malformed JSON and returns JSON errors for unknown paths/methods", async () => {
     const fetch = await createHandler();
     const invalid = await fetch(new Request("http://localhost/api/links", { method: "POST", body: "{" }));
