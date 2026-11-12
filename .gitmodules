@@ -1,0 +1,12 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/MelvCwC/SnipProjectNusISS.git
+	branch = backend
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/MelvCwC/SnipProjectNusISS.git
+	branch = frontend
+[submodule "cli"]
+	path = cli
+	url = https://github.com/MelvCwC/SnipProjectNusISS.git
+	branch = cli
