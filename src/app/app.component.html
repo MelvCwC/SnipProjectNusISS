@@ -1,0 +1,99 @@
+<main class="page-shell">
+  <header class="hero">
+    <p class="eyebrow">SNIP · SIMPLE LINKS, SHARED ANYWHERE</p>
+    <h1>Make a long story <span>short.</span></h1>
+    <p class="subtitle">Turn any URL into a tidy link you can share in a moment.</p>
+  </header>
+
+  <section class="shortener-card" aria-labelledby="shortener-heading">
+    <h2 id="shortener-heading">Create a short link</h2>
+    <form [formGroup]="form" (ngSubmit)="createLink()" novalidate>
+      <label for="url">Your destination URL</label>
+      <div class="input-row">
+        <input
+          id="url"
+          type="url"
+          formControlName="url"
+          placeholder="https://example.com/a/very/long/link"
+          autocomplete="url"
+          inputmode="url"
+          [attr.aria-invalid]="urlControl.touched && urlControl.invalid"
+          [attr.aria-describedby]="urlControl.touched && urlControl.invalid ? 'url-help url-error' : 'url-help'"
+        />
+        <button type="submit" [disabled]="submitting()">
+          {{ submitting() ? 'Creating…' : 'Shorten URL' }}
+        </button>
+      </div>
+      <p id="url-help" class="field-help">Use a complete web address beginning with http:// or https://.</p>
+      @if (urlControl.touched && urlControl.hasError('required')) {
+        <p id="url-error" class="field-error">Enter a URL to continue.</p>
+      } @else if (urlControl.touched && urlControl.hasError('httpUrl')) {
+        <p id="url-error" class="field-error">Enter a valid HTTP or HTTPS URL.</p>
+      }
+    </form>
+
+    @if (submitError()) {
+      <p class="notice notice-error" role="alert">{{ submitError() }}</p>
+    }
+    @if (createdLink(); as link) {
+      <p class="notice notice-success" role="status" aria-live="polite">
+        Your short link is ready:
+        <a [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">{{ link.shortUrl }}</a>
+      </p>
+    }
+  </section>
+
+  <section class="links-section" aria-labelledby="links-heading">
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">YOUR COLLECTION</p>
+        <h2 id="links-heading">Recent links</h2>
+      </div>
+      <span class="link-count">{{ links().length }} {{ links().length === 1 ? 'link' : 'links' }}</span>
+    </div>
+
+    @if (loading()) {
+      <p class="notice" role="status" aria-live="polite">Loading your links…</p>
+    }
+    @if (listError()) {
+      <p class="notice notice-error" role="alert">{{ listError() }}</p>
+    }
+    @if (!loading() && !listError() && links().length === 0) {
+      <div class="empty-state">
+        <span class="empty-icon" aria-hidden="true">↗</span>
+        <p>No links yet. Your next great share starts above.</p>
+      </div>
+    }
+    @if (links().length > 0) {
+      <div class="table-wrap">
+        <table>
+          <caption class="visually-hidden">Your shortened links and their visit counts</caption>
+          <thead>
+            <tr>
+              <th scope="col">Short link</th>
+              <th scope="col">Original URL</th>
+              <th scope="col" class="hits-column">Visits</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (link of links(); track link.code) {
+              <tr>
+                <td>
+                  <a class="short-link" [href]="link.shortUrl" target="_blank" rel="noopener noreferrer">
+                    {{ link.code }}
+                  </a>
+                </td>
+                <td class="original-url">
+                  <a [href]="link.url" target="_blank" rel="noopener noreferrer">{{ link.url }}</a>
+                </td>
+                <td class="hits-column">{{ link.hits }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+
+  <footer>Short, simple, and ready to share.</footer>
+</main>
