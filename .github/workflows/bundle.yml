@@ -1,0 +1,70 @@
+name: Build bundle
+
+# No push trigger: this workflow only exists on main, so pushes to component
+# branches cannot start it.
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: snip-bundle-release
+  cancel-in-progress: false
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main and submodules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          submodules: true
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: "1"
+
+      - name: Test backend
+        working-directory: backend
+        run: bun test
+
+      - name: Test CLI
+        run: npm test --prefix cli
+
+      - name: Install and test frontend
+        run: |
+          npm ci --prefix frontend
+          npm test --prefix frontend -- --watch=false --browsers=ChromeHeadless
+          npm run build --prefix frontend
+
+      - name: Audit production dependencies
+        continue-on-error: true
+        run: npm audit --prefix frontend --omit=dev --audit-level=high
+
+      - name: Configure release identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Generate and push bundle
+        id: bundle
+        run: node scripts/build-bundle.mjs --push
+
+      - name: Notify Docker workflow for a new bundle
+        if: steps.bundle.outputs.bundle_changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api --method POST "repos/${GITHUB_REPOSITORY}/dispatches" -f event_type=bundle_release

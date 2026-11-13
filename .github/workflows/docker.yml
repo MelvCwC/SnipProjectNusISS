@@ -1,0 +1,114 @@
+name: Build and push image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      # This path is the bundle submodule gitlink, not its contents.
+      - bundle
+      - .github/workflows/docker.yml
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - bundle_release
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main and submodules
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: main
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: "1"
+
+      - name: Test backend
+        working-directory: backend
+        run: bun test
+
+      - name: Test CLI
+        run: npm test --prefix cli
+
+      - name: Install and test frontend
+        run: |
+          npm ci --prefix frontend
+          npm test --prefix frontend -- --watch=false --browsers=ChromeHeadless
+          npm run build --prefix frontend
+
+      - name: Audit production dependencies
+        id: dependency-audit
+        continue-on-error: true
+        run: npm audit --prefix frontend --omit=dev --audit-level=high
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+
+      - name: Prepare image tags
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short,prefix=
+
+      - name: Build image for scanning
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: ./bundle
+          tags: snip:verify-${{ github.sha }}
+          labels: ${{ steps.meta.outputs.labels }}
+          load: true
+          push: false
+
+      - name: Scan image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4
+        with:
+          image-ref: snip:verify-${{ github.sha }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Block publishing when dependency audit failed
+        if: steps.dependency-audit.outcome != 'success'
+        run: |
+          echo "Refusing to publish: production dependency audit found high or critical advisories."
+          exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish the scanned image
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          VERIFY_TAG: snip:verify-${{ github.sha }}
+        run: |
+          while IFS= read -r tag; do
+            [ -n "$tag" ] || continue
+            docker tag "$VERIFY_TAG" "$tag"
+            docker push "$tag"
+          done <<< "$IMAGE_TAGS"

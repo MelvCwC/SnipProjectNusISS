@@ -30,7 +30,7 @@ populate them after a plain clone, run `git submodule update --init --recursive`
 
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
-| `POST` | `/api/links` | `{ "url": "https://…" }` | `201` `{ code, url, shortUrl, hits, createdAt }`; `400` `{ error }` for invalid input |
+| `POST` | `/api/links` | `{ "url": "https://..." }` | `201` `{ code, url, shortUrl, hits, createdAt }`; `400` `{ error }` for invalid input |
 | `GET` | `/api/links` | — | `200` array of link objects |
 | `GET` | `/:code` | — | `302` redirect and incremented hit count; `404` when unknown |
 
@@ -79,3 +79,12 @@ Use the corresponding path for `frontend` or `cli`. The `bundle` directory is
 generated output; do not edit it by hand. Rebuild it with
 `node scripts/build-bundle.mjs`; pass `--push` to publish the bundle and main
 pointer updates.
+
+The bundle workflow rebuilds on an hourly schedule or manual dispatch; it has
+no push trigger because component branch pushes do not run a workflow defined
+only on `main`. The Docker workflow watches the `bundle` submodule pointer.
+Both workflows run backend, frontend, and CLI tests. Docker publishing also
+requires a passing production dependency audit and high/critical image scan.
+CI uses Node 22 because the Angular 19 CLI does not support Node 24. Current
+Angular 19 production advisories can block image publishing until a patched
+compatible release is available.
