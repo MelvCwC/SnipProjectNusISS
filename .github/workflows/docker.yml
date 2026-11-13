@@ -80,8 +80,9 @@ jobs:
           push: false
 
       - name: Scan image for high and critical vulnerabilities
-        uses: aquasecurity/trivy-action@dc5a429b52fcf669ce959baa2c2dd26090d2a6c4
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
         with:
+          version: v0.69.2
           image-ref: snip:verify-${{ github.sha }}
           format: table
           exit-code: "1"
@@ -90,7 +91,7 @@ jobs:
           severity: HIGH,CRITICAL
 
       - name: Block publishing when dependency audit failed
-        if: steps.dependency-audit.outcome != 'success'
+        if: always() && steps.dependency-audit.outcome != 'success'
         run: |
           echo "Refusing to publish: production dependency audit found high or critical advisories."
           exit 1
